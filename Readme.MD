@@ -27,3 +27,13 @@ Saya juga memahami pentingnya refactoring pada bagian pemilihan response agar ko
 Pada milestone ini, saya menambahkan simulasi request lambat dengan membuat route /sleep yang akan menunda response selama 10 detik menggunakan thread::sleep(Duration::from_secs(10)). Dengan penambahan ini, server tetap mengembalikan hello.html, tetapi secara sengaja dibuat lambat agar saya dapat mengamati perilaku server ketika menangani request yang membutuhkan waktu lama.
 
 Dari percobaan menggunakan dua tab browser, saya melihat bahwa ketika satu tab mengakses /sleep, request lain ke / juga ikut tertunda. Hal ini terjadi karena server masih berjalan secara single-threaded, sehingga hanya dapat menangani satu request dalam satu waktu. Milestone ini membantu saya memahami secara langsung bahwa server satu thread tidak efisien untuk banyak pengguna, karena satu request lambat dapat memblokir request lainnya. Inilah alasan mengapa pada tahap berikutnya dibutuhkan server multithreaded.
+
+### REFLECTION 5
+
+![Commit 5.1 screen capture](/assets/images/commit5.png)
+![Commit 5.2 screen capture](/assets/images/commit52.png)
+
+
+Pada milestone ini, saya mengimplementasikan server multithreaded menggunakan ThreadPool untuk mengatasi keterbatasan server single-threaded yang sebelumnya menyebabkan blocking antar request. Dengan pendekatan ini, setiap koneksi yang masuk tidak langsung diproses oleh main thread, tetapi dikirim sebagai job melalui channel ke worker thread yang tersedia. Worker kemudian mengambil job tersebut dan mengeksekusinya secara paralel, sehingga beberapa request dapat diproses secara bersamaan tanpa saling menunggu.
+
+Saya juga memahami bahwa penggunaan Arc<Mutex<Receiver<Job>>> memungkinkan beberapa worker berbagi akses terhadap satu sumber job secara aman, sementara constraint FnOnce + Send + 'static memastikan closure dapat dipindahkan dan dijalankan di thread lain tanpa masalah ownership maupun lifetime. Dari hasil pengujian, terlihat bahwa request ke endpoint /sleep tidak lagi memblokir request lain selama masih ada worker yang tersedia. Hal ini menunjukkan bahwa concurrency secara signifikan meningkatkan responsivitas server, terutama dalam menangani request yang bersifat lambat atau blocking. Namun, jumlah worker yang terbatas tetap menjadi bottleneck jika jumlah request melebihi kapasitas thread pool.
